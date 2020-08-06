@@ -37,10 +37,11 @@ start:		lda #$00
             lda #START_IRQ_LINE
             sta $d012
 
-            lda #<irq1
-            sta $fffe
-            lda #>irq1
-            sta $ffff
+            //lda #<irq1
+            //sta $fffe
+            //lda #>irq1
+            //sta $ffff
+            mov16 #irq1 : $fffe
 
             // we turn off the BASIC and KERNAL rom here
             lda #$35
@@ -69,8 +70,24 @@ start:		lda #$00
             sta 2046
             sta 2047
 
+            // point 7 first sprites to teedjay pattern
+            clc
+            lda #180
+            sta 2040
+            adc #1
+            sta 2041
+            sta 2042
+            adc #1
+            sta 2043
+            adc #1
+            sta 2044
+            adc #1
+            sta 2045
+            adc #1
+            sta 2046
+
             // fill sprites pattern
-            lda #255
+            lda #85 // 01010101
             ldx #0
 fill:		sta 192*64, x
             inx
@@ -79,8 +96,10 @@ fill:		sta 192*64, x
             bne fill
 
             // draw sprites
-            StoreAddressAtZeroPage($d000, $60)
-            StoreAddressAtZeroPage($d001, $62)
+            // StoreAddressAtZeroPage($d000, $60)
+            // StoreAddressAtZeroPage($d001, $62)
+            mov16 #$d000 : $60
+            mov16 #$d001 : $62
             ldy #0
             lda #60
 sprites:	sta ($60), y
@@ -92,16 +111,24 @@ sprites:	sta ($60), y
             cpy #16
             bne sprites			
 
-            // copy som gfx
+            // copy som gfx 1000 chars (chars at $0400 and colors at $d800)
             ldx #0
-loop:		txa
+copy768:	txa
             sta $0400, x
+            sta $0500, x
+            sta $0600, x
             sta $d800, x
-            lda #32
-            sta $04f0, x
+            sta $d900, x
+            sta $da00, x
             inx
-            cpx #240
-            bne loop
+            cpx #0
+            bne copy768
+copy232:    txa
+            sta $0700, x
+            sta $db00, x
+            inx
+            cpx #232
+            bne copy232
             
             // enable maskable interrupts again
             cli
@@ -185,7 +212,7 @@ char:		lda ($42), y
             AddToZeroPageAddress($52, 40)
 
             inx
-            cpx #12
+            cpx #1
             bne line
 
 continue:   pla
@@ -225,3 +252,105 @@ sinus:		.fill 256, 127.5 + 127.5*sin(toRadians(i*360/256))
     lda #>address
     sta zeropage + 1
 }
+
+
+// these are some 16 bit utility functions, as shown in the kickass manual
+.function _16bitnextArgument(arg) {
+    .if (arg.getType()==AT_IMMEDIATE) .return CmdArgument(arg.getType(),>arg.getValue())
+    .return CmdArgument(arg.getType(),arg.getValue()+1)
+}
+
+.pseudocommand inc16 arg {
+    inc arg
+    bne over
+    inc _16bitnextArgument(arg) 
+over:
+}
+
+.pseudocommand mov16 src:tar { 
+    lda src
+    sta tar
+    lda _16bitnextArgument(src) 
+    sta _16bitnextArgument(tar)
+}
+
+.pseudocommand add16 arg1 : arg2 : tar {
+    .if (tar.getType()==AT_NONE) .eval tar=arg1 
+    clc
+    lda arg1
+    adc arg2
+    sta tar
+    lda _16bitnextArgument(arg1)
+    adc _16bitnextArgument(arg2)
+    sta _16bitnextArgument(tar)
+}
+
+// 6 sprites generated with spritemate on 6.8.2020, 22:37:54 (TEDJAY)
+// Byte 64 of each sprite contains multicolor (high nibble) & color (low nibble) information
+// Store these pattens at address 180*64 (which is sprite pattern 180)
+*=180*64
+// sprite 0 / singlecolor / color: $03
+sprite_0:
+.byte $00,$1f,$e0,$07,$ff,$fc,$7f,$ff
+.byte $fc,$ff,$ff,$fe,$ff,$ff,$fe,$ff
+.byte $ff,$fc,$ff,$ff,$f8,$c1,$fe,$00
+.byte $00,$7c,$00,$00,$7c,$00,$00,$7e
+.byte $00,$00,$7e,$00,$00,$7e,$00,$00
+.byte $ff,$00,$00,$ff,$00,$00,$ff,$00
+.byte $00,$ff,$00,$00,$7f,$00,$00,$7e
+.byte $00,$00,$7e,$00,$00,$1c,$00,$03
+
+// sprite 1 / singlecolor / color: $03
+sprite_1:
+.byte $00,$7f,$e0,$0f,$ff,$f8,$1f,$ff
+.byte $fc,$3f,$ff,$fe,$7f,$ff,$fe,$ff
+.byte $ff,$fc,$ff,$00,$38,$fe,$00,$00
+.byte $ff,$e0,$00,$ff,$f0,$00,$ff,$f0
+.byte $00,$ff,$c0,$00,$fe,$00,$00,$fe
+.byte $00,$00,$fc,$00,$78,$fe,$03,$fc
+.byte $7f,$ff,$fc,$7f,$ff,$f8,$3f,$ff
+.byte $f0,$3f,$ff,$c0,$01,$fe,$00,$03
+
+// sprite 2 / singlecolor / color: $03
+sprite_2:
+.byte $1f,$c0,$00,$7f,$fc,$00,$ff,$fe
+.byte $00,$ff,$ff,$80,$ff,$ff,$80,$ff
+.byte $ff,$c0,$fc,$1f,$f0,$7c,$0f,$f0
+.byte $7c,$07,$f8,$7c,$03,$f8,$7c,$01
+.byte $f8,$7c,$01,$f8,$7c,$00,$fc,$7e
+.byte $00,$fc,$7f,$00,$fc,$7f,$00,$fc
+.byte $7f,$ff,$f8,$7f,$ff,$f8,$3f,$ff
+.byte $f8,$3f,$ff,$f8,$1f,$ff,$e0,$03
+
+// sprite 3 / singlecolor / color: $03
+sprite_3:
+.byte $07,$ff,$00,$0f,$ff,$c0,$3f,$ff
+.byte $c0,$ff,$ff,$e0,$ff,$1f,$e0,$fc
+.byte $03,$f0,$60,$03,$f0,$00,$01,$f0
+.byte $00,$00,$f8,$00,$00,$f8,$00,$00
+.byte $7c,$00,$00,$7c,$1c,$00,$3c,$3e
+.byte $00,$3c,$3f,$00,$3c,$3f,$00,$3e
+.byte $3f,$00,$7e,$3f,$80,$fe,$1f,$ff
+.byte $fe,$1f,$ff,$fc,$0f,$ff,$e0,$03
+
+// sprite 4 / singlecolor / color: $03
+sprite_4:
+.byte $00,$ff,$00,$07,$ff,$c0,$1f,$ff
+.byte $e0,$3f,$ff,$f0,$7f,$ff,$f8,$ff
+.byte $ff,$fc,$ff,$c7,$fc,$ff,$81,$fe
+.byte $ff,$00,$fe,$ff,$80,$fe,$ff,$c3
+.byte $fe,$ff,$ff,$fe,$ff,$ff,$fe,$ff
+.byte $ff,$fe,$ff,$07,$fe,$ff,$00,$fe
+.byte $ff,$00,$fe,$fe,$00,$fe,$7e,$00
+.byte $7e,$7e,$00,$3e,$3c,$00,$1e,$03
+
+// sprite 5 / singlecolor / color: $03
+sprite_5:
+.byte $38,$00,$fc,$7e,$01,$fe,$ff,$81
+.byte $fe,$ff,$83,$fe,$ff,$87,$fe,$ff
+.byte $c7,$fc,$ff,$e7,$f8,$7f,$e7,$f0
+.byte $3f,$ff,$e0,$07,$ff,$c0,$03,$ff
+.byte $80,$01,$ff,$80,$00,$ff,$80,$00
+.byte $ff,$80,$00,$7f,$c0,$00,$7f,$c0
+.byte $00,$7f,$c0,$00,$7f,$c0,$00,$7f
+.byte $80,$00,$3f,$80,$00,$1f,$00,$03
