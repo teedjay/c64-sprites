@@ -1,4 +1,4 @@
-BasicUpstart2(start)			// <- This creates a basic sys line that can start your program
+BasicUpstart2(start)			// <- This creates a basic sys basic line that can start your program
 
 .const FIRST_VISIBLE_LINE = 50
 .const START_IRQ_LINE = 200
