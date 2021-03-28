@@ -111,6 +111,39 @@ sprites:	sta ($60), y
             cpy #16
             bne sprites			
 
+            // clear screen 1000 chars and color ram
+            ldx #0
+copy768:	lda #32
+            sta $0400, x
+            sta $0500, x
+            sta $0600, x
+            lda #0
+            sta $d800, x
+            sta $d900, x
+            sta $da00, x
+            inx
+            cpx #0
+            bne copy768
+copy232:    lda #32
+            sta $0700, x
+            lda #0
+            sta $db00, x
+            inx
+            cpx #232
+            bne copy232
+            ldx #0
+copy040:	lda teedjay, x
+            sta $0400, x
+            sta $0428, x
+            txa
+            sta $d800, x
+            sta $d828, x
+            inx
+            cpx #40
+            bne copy040
+
+
+/*
             // copy som gfx 1000 chars (chars at $0400 and colors at $d800)
             ldx #0
 copy768:	txa
@@ -129,13 +162,16 @@ copy232:    txa
             inx
             cpx #232
             bne copy232
-            
+*/
+
             // enable maskable interrupts again
-            cli
+skip:       cli
 
 crazy:      sta $d020
             adc 1
             jmp crazy
+
+teedjay:    .text " teedjay teedjay teedjay teedjay teedjay"
 
 //----------------------------------------------------------
 
@@ -179,7 +215,7 @@ movespr:	lda sinus, x
             cmp #$07
             bne continue
 
-            // char ram $0400 and $0401 pointer toin $40 + $42 zero page
+            // char ram $0400 and $0401 pointer to $40 + $42 zero page
             StoreAddressAtZeroPage($0400, $40)
             StoreAddressAtZeroPage($0401, $42)
 
@@ -198,7 +234,7 @@ char:		lda ($42), y
             lda ($52), y
             sta ($50), y
             iny
-            cpy #40
+            cpy #80
             bne char
             dey
             pla
